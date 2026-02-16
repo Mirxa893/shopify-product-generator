@@ -245,7 +245,7 @@
       <input type="file" id="fileInput" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" multiple />
       <div class="icon">📷</div>
       <p><strong>Drop images here</strong> or click to browse</p>
-      <p>JPEG, PNG, GIF, WebP — up to 50 images</p>
+      <p>JPEG, PNG, GIF, WebP — up to 15 per batch (compressed to stay under 4.5 MB)</p>
     </div>
 
     <div class="preview-list" id="previewList"></div>
@@ -285,7 +285,7 @@
       const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
       for (const file of Array.from(files)) {
         if (!allowed.includes(file.type)) continue;
-        if (selectedFiles.length >= 50) break;
+        if (selectedFiles.length >= 15) break;
         selectedFiles.push(file);
       }
       renderPreviews();
@@ -339,15 +339,70 @@
       hideStatus();
     });
 
+    // Compress image to stay under Vercel 4.5 MB request limit (resize + JPEG)
+    const MAX_DIM = 1200;
+    const JPEG_QUALITY = 0.82;
+    const TARGET_MAX_BYTES = 4 * 1024 * 1024; // 4 MB total for batch
+
+    function compressImage(file) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          const w = img.naturalWidth;
+          const h = img.naturalHeight;
+          let dw = w, dh = h;
+          if (w > MAX_DIM || h > MAX_DIM) {
+            if (w >= h) {
+              dw = MAX_DIM;
+              dh = Math.round((h * MAX_DIM) / w);
+            } else {
+              dh = MAX_DIM;
+              dw = Math.round((w * MAX_DIM) / h);
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = dw;
+          canvas.height = dh;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, dw, dh);
+          canvas.toBlob(
+            (blob) => {
+              URL.revokeObjectURL(img.src);
+              if (!blob) {
+                reject(new Error('Compression failed'));
+                return;
+              }
+              const name = file.name.replace(/\.[^.]+$/, '.jpg');
+              resolve(new File([blob], name, { type: 'image/jpeg' }));
+            },
+            'image/jpeg',
+            JPEG_QUALITY
+          );
+        };
+        img.onerror = () => { URL.revokeObjectURL(img.src); reject(new Error('Could not load image')); };
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
     generateBtn.addEventListener('click', async () => {
       if (selectedFiles.length === 0) return;
-      const formData = new FormData();
-      selectedFiles.forEach((f) => formData.append('images', f));
-
-      showStatus(`Generating titles and descriptions for ${selectedFiles.length} image(s)…`, 'loading');
       generateBtn.disabled = true;
 
       try {
+        showStatus('Compressing images for upload…', 'loading');
+        const compressed = await Promise.all(selectedFiles.map(compressImage));
+        let totalSize = 0;
+        compressed.forEach((f) => { totalSize += f.size; });
+        if (totalSize > TARGET_MAX_BYTES) {
+          showStatus(`Total size ${(totalSize / 1024 / 1024).toFixed(1)} MB is over the 4.5 MB limit. Use fewer or smaller images.`, 'error');
+          generateBtn.disabled = false;
+          return;
+        }
+
+        showStatus(`Generating titles and descriptions for ${compressed.length} image(s)…`, 'loading');
+        const formData = new FormData();
+        compressed.forEach((f) => formData.append('images', f));
+
         const res = await fetch('/api/generate', {
           method: 'POST',
           body: formData,
@@ -366,7 +421,7 @@
         a.click();
         URL.revokeObjectURL(url);
 
-        showStatus(`Done! Downloaded CSV with ${selectedFiles.length} product(s). Import it in Shopify → Products → Import.`, 'success');
+        showStatus(`Done! Downloaded CSV with ${compressed.length} product(s). Import it in Shopify → Products → Import.`, 'success');
       } catch (err) {
         showStatus(err.message || 'Something went wrong.', 'error');
       } finally {
