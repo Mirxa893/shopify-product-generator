@@ -1,5 +1,6 @@
 require('dotenv').config();
-const formidable = require('formidable');
+const formModule = require('formidable');
+const formidable = formModule.default || formModule.formidable;
 const fs = require('fs').promises;
 const {
   getProductFromImage,
