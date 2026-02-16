@@ -19,9 +19,9 @@ const supabase =
     ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
     : null;
 
-// Ensure local uploads directory exists (optional local backup / debugging)
+// Ensure local uploads directory exists only when not on Vercel (read-only fs)
 const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
+if (!process.env.VERCEL && !fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
@@ -86,12 +86,14 @@ async function uploadImageToSupabase(buffer, mimeType, originalname, index) {
   const filename = `${uniqueSuffix}-${safeBase}${ext}`;
   const storagePath = filename; // flat path in bucket
 
-  // Optional: also write to local uploads dir for debugging
-  try {
-    const localPath = path.join(uploadsDir, filename);
-    fs.writeFileSync(localPath, buffer);
-  } catch {
-    // Ignore local write errors, Supabase upload is what matters
+  // Optional: write to local uploads dir only when not on Vercel (serverless has read-only fs)
+  if (!process.env.VERCEL) {
+    try {
+      const localPath = path.join(uploadsDir, filename);
+      fs.writeFileSync(localPath, buffer);
+    } catch {
+      // Ignore local write errors, Supabase upload is what matters
+    }
   }
 
   const { error } = await supabase.storage
@@ -328,3 +330,7 @@ if (!process.env.VERCEL) {
 }
 
 module.exports = app;
+module.exports.getProductFromImage = getProductFromImage;
+module.exports.uploadImageToSupabase = uploadImageToSupabase;
+module.exports.toShopifyRow = toShopifyRow;
+module.exports.SHOPIFY_CSV_HEADER = SHOPIFY_CSV_HEADER;
