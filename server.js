@@ -111,17 +111,21 @@ async function uploadImageToSupabase(buffer, mimeType, originalname, index) {
   return data?.publicUrl || '';
 }
 
-// Escape CSV field (wrap in quotes if contains comma, quote, or newline)
+// Escape CSV field (wrap in quotes if contains comma, quote, or newline).
+// Normalize newlines in HTML so one cell doesn't break into multiple lines for strict parsers.
 function escapeCsvField(value) {
   if (value == null) return '';
-  const s = String(value).replace(/"/g, '""');
-  if (/[,"\n\r]/.test(s)) return `"${s}"`;
+  let s = String(value).replace(/\r\n|\r|\n/g, ' ').trim();
+  s = s.replace(/"/g, '""');
+  if (/[,"]/.test(s)) return `"${s}"`;
   return s;
 }
 
-// Build one row of Shopify product CSV (minimal required columns)
+// Build one row of Shopify product CSV (minimal required columns).
+// Handle must be unique per row or Shopify merges/skips products (imports N-1).
 function toShopifyRow(product, index) {
-  const handle = product.handle || `product-${index + 1}`;
+  const baseHandle = (product.handle || `product`).replace(/-?\d+$/, ''); // strip any trailing -1 so we don't get product-1-2
+  const handle = `${baseHandle}-${index + 1}`;
   return [
     escapeCsvField(handle),
     escapeCsvField(product.title),
