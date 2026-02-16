@@ -245,7 +245,7 @@
       <input type="file" id="fileInput" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" multiple />
       <div class="icon">📷</div>
       <p><strong>Drop images here</strong> or click to browse</p>
-      <p>JPEG, PNG, GIF, WebP — up to 15 per batch (compressed to stay under 4.5 MB)</p>
+      <p>JPEG, PNG, GIF, WebP — up to 8 per batch (keeps under 60s & 4.5 MB)</p>
     </div>
 
     <div class="preview-list" id="previewList"></div>
@@ -285,7 +285,7 @@
       const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
       for (const file of Array.from(files)) {
         if (!allowed.includes(file.type)) continue;
-        if (selectedFiles.length >= 15) break;
+        if (selectedFiles.length >= 8) break;
         selectedFiles.push(file);
       }
       renderPreviews();

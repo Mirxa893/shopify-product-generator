@@ -12,6 +12,8 @@ const {
 // Max 50 images, 10MB each
 const MAX_FILES = 50;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+// Process this many images at a time to stay under 60s Vercel timeout
+const CONCURRENCY = 4;
 
 /**
  * Vercel serverless handler.
@@ -58,7 +60,7 @@ module.exports = async (req, res) => {
 
     const products = [];
     const errors = [];
-
+    const items = [];
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i];
       if (!file?.filepath) continue;
@@ -69,21 +71,37 @@ module.exports = async (req, res) => {
         errors.push({ file: file.originalFilename || 'image', message: 'Could not read file.' });
         continue;
       }
-      const mimetype = file.mimetype || 'image/jpeg';
-      const originalname = file.originalFilename || `image-${i}.jpg`;
+      items.push({
+        buffer,
+        mimetype: file.mimetype || 'image/jpeg',
+        originalname: file.originalFilename || `image-${i}.jpg`,
+        index: i,
+      });
+    }
 
+    async function processOne(item) {
+      const { buffer, mimetype, originalname, index } = item;
       try {
         const product = await getProductFromImage(buffer, mimetype, originalname);
         try {
-          const imageUrl = await uploadImageToSupabase(buffer, mimetype, originalname, i);
+          const imageUrl = await uploadImageToSupabase(buffer, mimetype, originalname, index);
           if (imageUrl) product.imageSrc = imageUrl;
         } catch (uploadErr) {
           errors.push({ file: originalname, message: `Image upload failed: ${uploadErr.message}` });
         }
-        products.push(product);
+        return { product, index };
       } catch (err) {
         errors.push({ file: originalname, message: err.message });
+        return { product: null, index };
       }
+    }
+
+    for (let start = 0; start < items.length; start += CONCURRENCY) {
+      const chunk = items.slice(start, start + CONCURRENCY);
+      const results = await Promise.all(chunk.map(processOne));
+      results.forEach((r) => {
+        if (r.product) products.push(r.product);
+      });
     }
 
     if (products.length === 0) {
