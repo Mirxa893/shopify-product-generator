@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shopify Product Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0d0f12;
+      --surface: #161a1f;
+      --border: #2a2f36;
+      --text: #e6e9ef;
+      --text-muted: #8b919e;
+      --accent: #7c9cff;
+      --accent-hover: #9ab2ff;
+      --success: #7ee787;
+      --error: #ff7b7b;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(124, 156, 255, 0.12), transparent),
+        radial-gradient(ellipse 60% 40% at 100% 100%, rgba(126, 231, 135, 0.06), transparent);
+    }
+
+    .container {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0 0 0.5rem;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 2.5rem;
+      text-align: center;
+      background: var(--surface);
+      transition: border-color 0.2s, background 0.2s;
+      cursor: pointer;
+      margin-bottom: 1.5rem;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(124, 156, 255, 0.06);
+    }
+
+    .upload-zone input {
+      display: none;
+    }
+
+    .upload-zone .icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 1rem;
+      background: var(--border);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+    }
+
+    .upload-zone p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .upload-zone p strong {
+      color: var(--text);
+    }
+
+    .preview-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .preview-item {
+      position: relative;
+      aspect-ratio: 1;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: var(--surface);
+    }
+
+    .preview-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .preview-item .remove {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 24px;
+      height: 24px;
+      border: none;
+      border-radius: 6px;
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.9;
+    }
+
+    .preview-item .remove:hover {
+      background: var(--error);
+    }
+
+    .actions {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding: 0.75rem 1.25rem;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--border);
+    }
+
+    .status {
+      margin-top: 1.25rem;
+      padding: 1rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.9rem;
+      display: none;
+    }
+
+    .status.visible {
+      display: block;
+    }
+
+    .status.loading {
+      background: rgba(124, 156, 255, 0.12);
+      color: var(--accent);
+    }
+
+    .status.error {
+      background: rgba(255, 123, 123, 0.12);
+      color: var(--error);
+    }
+
+    .status.success {
+      background: rgba(126, 231, 135, 0.12);
+      color: var(--success);
+    }
+
+    .footer {
+      margin-top: 2.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    .footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Shopify Product Generator</h1>
+      <p class="subtitle">Upload product images → AI writes titles & descriptions → Download CSV for Shopify</p>
+    </header>
+
+    <div class="upload-zone" id="dropZone" role="button" tabindex="0">
+      <input type="file" id="fileInput" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" multiple />
+      <div class="icon">📷</div>
+      <p><strong>Drop images here</strong> or click to browse</p>
+      <p>JPEG, PNG, GIF, WebP — up to 50 images</p>
+    </div>
+
+    <div class="preview-list" id="previewList"></div>
+
+    <div class="actions">
+      <button type="button" class="btn btn-primary" id="generateBtn" disabled>Generate CSV</button>
+      <button type="button" class="btn btn-secondary" id="clearBtn" disabled>Clear all</button>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <footer class="footer">
+      Uses <a href="https://openrouter.ai" target="_blank" rel="noopener">OpenRouter</a> for AI. Set <code>OPENROUTER_API_KEY</code> in <code>.env</code>. Import the CSV in Shopify: Products → Import.
+    </footer>
+  </div>
+
+  <script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const previewList = document.getElementById('previewList');
+    const generateBtn = document.getElementById('generateBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const statusEl = document.getElementById('status');
+
+    let selectedFiles = [];
+
+    function showStatus(message, type) {
+      statusEl.textContent = message;
+      statusEl.className = 'status visible ' + (type || '');
+    }
+
+    function hideStatus() {
+      statusEl.className = 'status';
+    }
+
+    function addFiles(files) {
+      const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      for (const file of Array.from(files)) {
+        if (!allowed.includes(file.type)) continue;
+        if (selectedFiles.length >= 50) break;
+        selectedFiles.push(file);
+      }
+      renderPreviews();
+      generateBtn.disabled = selectedFiles.length === 0;
+      clearBtn.disabled = selectedFiles.length === 0;
+    }
+
+    function removeFile(index) {
+      selectedFiles.splice(index, 1);
+      renderPreviews();
+      generateBtn.disabled = selectedFiles.length === 0;
+      clearBtn.disabled = selectedFiles.length === 0;
+    }
+
+    function renderPreviews() {
+      previewList.innerHTML = '';
+      selectedFiles.forEach((file, i) => {
+        const div = document.createElement('div');
+        div.className = 'preview-item';
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        img.alt = file.name;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'remove';
+        btn.innerHTML = '×';
+        btn.title = 'Remove';
+        btn.addEventListener('click', (e) => { e.stopPropagation(); removeFile(i); });
+        div.appendChild(img);
+        div.appendChild(btn);
+        previewList.appendChild(div);
+      });
+    }
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      addFiles(e.dataTransfer.files);
+    });
+    fileInput.addEventListener('change', () => addFiles(fileInput.files));
+
+    clearBtn.addEventListener('click', () => {
+      selectedFiles = [];
+      renderPreviews();
+      generateBtn.disabled = true;
+      clearBtn.disabled = true;
+      fileInput.value = '';
+      hideStatus();
+    });
+
+    generateBtn.addEventListener('click', async () => {
+      if (selectedFiles.length === 0) return;
+      const formData = new FormData();
+      selectedFiles.forEach((f) => formData.append('images', f));
+
+      showStatus(`Generating titles and descriptions for ${selectedFiles.length} image(s)…`, 'loading');
+      generateBtn.disabled = true;
+
+      try {
+        const res = await fetch('/api/generate', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || `Request failed: ${res.status}`);
+        }
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = res.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1] || 'shopify-products.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+
+        showStatus(`Done! Downloaded CSV with ${selectedFiles.length} product(s). Import it in Shopify → Products → Import.`, 'success');
+      } catch (err) {
+        showStatus(err.message || 'Something went wrong.', 'error');
+      } finally {
+        generateBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
